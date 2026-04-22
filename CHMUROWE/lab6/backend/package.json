@@ -1,0 +1,20 @@
+{
+  "name": "product-dashboard-backend",
+  "version": "1.0.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests.js",
+    "dev": "nodemon -L server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "pg": "^8.16.0",
+    "redis": "^5.8.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10",
+    "supertest": "^7.1.1"
+  }
+}

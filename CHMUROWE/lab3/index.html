@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full-Stack App</title>
+</head>
+<body>
+    <h1>Full-Stack App</h1>
+    <div id="api-result">Ładowanie...</div>
+
+    <script>
+        fetch('/api/items')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Błąd HTTP: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('api-result').textContent = JSON.stringify(data);
+            })
+            .catch(error => {
+                document.getElementById('api-result').textContent = 'Błąd: ' + error.message;
+            });
+    </script>
+</body>
+</html>

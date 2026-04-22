@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+.cache/
+.turbo/
+coverage/
+backups/
+*.tar.gz
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+.venv/
+venv/
+
+# OS / editor noise
+Thumbs.db
+Desktop.ini
+*.log
+*.tmp
+*.swp
