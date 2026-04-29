@@ -1,0 +1,191 @@
+services:
+  nginx:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: product-dashboard-frontend:lab8
+    ports:
+      - "8081:8080"
+    networks:
+      proxy-net:
+        ipv4_address: 172.31.10.10
+    configs:
+      - source: nginx_config
+        target: /etc/nginx/nginx.conf
+    depends_on:
+      backend_1:
+        condition: service_started
+      backend_2:
+        condition: service_started
+
+  backend_1:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runner
+    image: product-dashboard-backend:lab8
+    environment:
+      INSTANCE_ID: backend_1
+      BACKEND_PORT: ${BACKEND_PORT}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      REDIS_URL: ${REDIS_URL}
+    networks:
+      proxy-net:
+        ipv4_address: 172.31.10.11
+      app-net:
+        ipv4_address: 172.31.11.11
+      db-net:
+        ipv4_address: 172.31.12.11
+    secrets:
+      - db_user
+      - db_password
+    configs:
+      - source: app_config
+        target: /app/app.config.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  backend_2:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: runner
+    image: product-dashboard-backend:lab8
+    environment:
+      INSTANCE_ID: backend_2
+      BACKEND_PORT: ${BACKEND_PORT}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      REDIS_URL: ${REDIS_URL}
+    networks:
+      proxy-net:
+        ipv4_address: 172.31.10.12
+      app-net:
+        ipv4_address: 172.31.11.12
+      db-net:
+        ipv4_address: 172.31.12.12
+    secrets:
+      - db_user
+      - db_password
+    configs:
+      - source: app_config
+        target: /app/app.config.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+      target: runner
+    image: product-dashboard-worker:lab8
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      REDIS_URL: ${REDIS_URL}
+    networks:
+      app-net:
+        ipv4_address: 172.31.11.20
+      db-net:
+        ipv4_address: 172.31.12.20
+    secrets:
+      - db_user
+      - db_password
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      app-net:
+        ipv4_address: 172.31.11.10
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER_FILE: /run/secrets/db_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      db-net:
+        ipv4_address: 172.31.12.10
+    secrets:
+      - db_user
+      - db_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$(cat /run/secrets/db_user)\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  adminer:
+    image: adminer:4
+    ports:
+      - "8080:8080"
+    networks:
+      db-net:
+        ipv4_address: 172.31.12.30
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+networks:
+  proxy-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.10.0/24
+          gateway: 172.31.10.1
+  app-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.11.0/24
+          gateway: 172.31.11.1
+  db-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.12.0/24
+          gateway: 172.31.12.1
+
+volumes:
+  postgres-data:
+  redis-data:
+
+secrets:
+  db_user:
+    file: ./secrets/db_user.txt
+  db_password:
+    file: ./secrets/db_password.txt
+
+configs:
+  nginx_config:
+    file: ./nginx.conf
+  app_config:
+    file: ./backend/app.config.json
