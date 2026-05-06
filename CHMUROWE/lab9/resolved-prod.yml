@@ -1,0 +1,257 @@
+﻿name: lab9
+services:
+  backend_1:
+    build:
+      context: C:\Users\jacob\Documents\UCZELNIA\CHMUROWE\lab9\backend
+      dockerfile: Dockerfile
+      target: runner
+    configs:
+      - source: app_config
+        target: /app/app.config.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 0.5
+          memory: "268435456"
+    environment:
+      BACKEND_PORT: "3000"
+      INSTANCE_ID: backend_1
+      LOG_LEVEL: info
+      POSTGRES_DB: products
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379
+    image: product-dashboard-backend:lab9
+    logging:
+      driver: json-file
+    networks:
+      app-net:
+        ipv4_address: 172.21.11.11
+      db-net:
+        ipv4_address: 172.21.12.11
+      proxy-net:
+        ipv4_address: 172.21.10.11
+    secrets:
+      - source: db_user
+        target: /run/secrets/db_user
+      - source: db_password
+        target: /run/secrets/db_password
+  backend_2:
+    build:
+      context: C:\Users\jacob\Documents\UCZELNIA\CHMUROWE\lab9\backend
+      dockerfile: Dockerfile
+      target: runner
+    configs:
+      - source: app_config
+        target: /app/app.config.json
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 0.5
+          memory: "268435456"
+    environment:
+      BACKEND_PORT: "3000"
+      INSTANCE_ID: backend_2
+      LOG_LEVEL: info
+      POSTGRES_DB: products
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379
+    image: product-dashboard-backend:lab9
+    logging:
+      driver: json-file
+    networks:
+      app-net:
+        ipv4_address: 172.21.11.12
+      db-net:
+        ipv4_address: 172.21.12.12
+      proxy-net:
+        ipv4_address: 172.21.10.12
+    secrets:
+      - source: db_user
+        target: /run/secrets/db_user
+      - source: db_password
+        target: /run/secrets/db_password
+  nginx:
+    build:
+      context: C:\Users\jacob\Documents\UCZELNIA\CHMUROWE\lab9\frontend
+      dockerfile: Dockerfile
+    configs:
+      - source: nginx_config
+        target: /etc/nginx/nginx.conf
+    depends_on:
+      backend_1:
+        condition: service_started
+        required: true
+      backend_2:
+        condition: service_started
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 0.25
+          memory: "134217728"
+    image: product-dashboard-frontend:lab9
+    logging:
+      driver: json-file
+    networks:
+      proxy-net:
+        ipv4_address: 172.21.10.10
+  postgres:
+    deploy:
+      resources:
+        limits:
+          cpus: 0.5
+          memory: "268435456"
+    environment:
+      POSTGRES_DB: products
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      POSTGRES_USER_FILE: /run/secrets/db_user
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$(cat /run/secrets/db_user)" -d "$${POSTGRES_DB}"
+      timeout: 5s
+      interval: 10s
+      retries: 5
+      start_period: 10s
+    image: postgres:16-alpine
+    logging:
+      driver: json-file
+    networks:
+      db-net:
+        ipv4_address: 172.21.12.10
+    secrets:
+      - source: db_user
+        target: /run/secrets/db_user
+      - source: db_password
+        target: /run/secrets/db_password
+    volumes:
+      - type: volume
+        source: postgres-data
+        target: /var/lib/postgresql/data
+        volume: {}
+  redis:
+    command:
+      - redis-server
+      - --save
+      - "60"
+      - "1"
+      - --appendonly
+      - "yes"
+    deploy:
+      resources:
+        limits:
+          cpus: 0.25
+          memory: "134217728"
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      timeout: 5s
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    image: redis:7-alpine
+    logging:
+      driver: json-file
+    networks:
+      app-net:
+        ipv4_address: 172.21.11.10
+    volumes:
+      - type: volume
+        source: redis-data
+        target: /data
+        volume: {}
+  worker:
+    build:
+      context: C:\Users\jacob\Documents\UCZELNIA\CHMUROWE\lab9
+      dockerfile: worker/Dockerfile
+      target: runner
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: true
+      redis:
+        condition: service_healthy
+        required: true
+    deploy:
+      resources:
+        limits:
+          cpus: 0.25
+          memory: "134217728"
+    environment:
+      LOG_LEVEL: info
+      POSTGRES_DB: products
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379
+    image: product-dashboard-worker:lab9
+    logging:
+      driver: json-file
+    networks:
+      app-net:
+        ipv4_address: 172.21.11.20
+      db-net:
+        ipv4_address: 172.21.12.20
+    secrets:
+      - source: db_user
+        target: /run/secrets/db_user
+      - source: db_password
+        target: /run/secrets/db_password
+networks:
+  app-net:
+    name: lab9_app-net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.11.0/24
+          gateway: 172.21.11.1
+  db-net:
+    name: lab9_db-net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.12.0/24
+          gateway: 172.21.12.1
+  proxy-net:
+    name: lab9_proxy-net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.21.10.0/24
+          gateway: 172.21.10.1
+volumes:
+  postgres-data:
+    name: lab9_postgres-data
+  redis-data:
+    name: lab9_redis-data
+secrets:
+  db_password:
+    name: lab9_db_password
+    file: C:\Users\jacob\Documents\UCZELNIA\CHMUROWE\lab9\secrets\db_password.txt
+  db_user:
+    name: lab9_db_user
+    file: C:\Users\jacob\Documents\UCZELNIA\CHMUROWE\lab9\secrets\db_user.txt
+configs:
+  app_config:
+    name: lab9_app_config
+    file: C:\Users\jacob\Documents\UCZELNIA\CHMUROWE\lab9\backend\app.config.json
+  nginx_config:
+    name: lab9_nginx_config
+    file: C:\Users\jacob\Documents\UCZELNIA\CHMUROWE\lab9\nginx.conf

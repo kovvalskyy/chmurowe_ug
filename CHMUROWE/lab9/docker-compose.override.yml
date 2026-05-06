@@ -1,0 +1,20 @@
+services:
+  nginx:
+    ports:
+      - "80:80"
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  backend_1:
+    volumes:
+      - ./backend/src:/app/src
+
+  backend_2:
+    volumes:
+      - ./backend/src:/app/src
+
+  worker:
+    volumes:
+      - ./worker/src:/app/src

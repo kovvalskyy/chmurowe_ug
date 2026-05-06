@@ -1,0 +1,14 @@
+{
+  "appName": "product-dashboard",
+  "requestTimeoutMs": 5000,
+  "maxItemNameLength": 100,
+  "statsCacheTtlSeconds": 10,
+  "instances": {
+    "backend_1": {
+      "displayName": "Backend instance 1"
+    },
+    "backend_2": {
+      "displayName": "Backend instance 2"
+    }
+  }
+}
